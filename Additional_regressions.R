@@ -8,6 +8,7 @@
 rm(list = ls())
 ## Preliminaries
 library(ivpack)
+library(igraph)
 set.seed(1234) # set seed
 
 #####################################
@@ -58,3 +59,39 @@ mean(dtapairs[dtapairs$SS==1,"gij2"])
 mean(dtapairs[dtapairs$ST==1,"gij2"])
 mean(dtapairs[dtapairs$TT==1,"gij2"])
 mean(dtapairs[dtapairs$TS==1,"gij2"])
+
+
+#####################################
+### Make network graphs examples ####
+#####################################
+
+# classroom 33 (size=18, q=)
+# classroom 29 (size=29, q=0.43)
+i <- 33
+g <- graph_from_adjacency_matrix(G[[i]])
+V(g)$color <- (1-(X[[i]][,3]-1))*2
+V(g)$label <- NA
+plot(g)
+print(mean(X[[i]][,3]==1))
+print(nrow(X[[i]]))
+
+i <- 29
+g <- graph_from_adjacency_matrix(G[[i]])
+V(g)$color <- (1-(X[[i]][,3]-1))*2
+V(g)$label <- NA
+plot(g)
+print(mean(X[[i]][,3]==1))
+print(nrow(X[[i]]))
+
+
+for (i in 1:36){
+  print("**")
+  print(i)
+  g <- graph_from_adjacency_matrix(G[[i]])
+  V(g)$color <- (1-(X[[i]][,3]-1))*2
+  V(g)$label <- NA
+  plot(g)
+  print(mean(X[[i]][,3]==1))
+  print(nrow(X[[i]]))
+}
+

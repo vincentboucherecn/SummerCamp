@@ -112,11 +112,23 @@ gamhat <- gamhat[1:(length(gamhat)-1)]  # keep point estimate for gamma
 ################################################################
 
 theta0 <- c(bethat,gamhat,log(phihat/(1-phihat)),log(sighat)) # initial values (including variable change for positive values)
-out <- optim(theta0,GMM) # minimize GMM objective
+out <- optim(theta0,GMM) # minimize GMM objective (unweighted)
 theta <- out$par # theta is estimator
 theta[(length(theta)-2):(length(theta)-1)] <- exp(theta[(length(theta)-2):(length(theta)-1)])/(1+exp(theta[(length(theta)-2):(length(theta)-1)])) # redo the variable change for phi
 theta[length(theta)] <- exp(theta[length(theta)]) # redo variable change for sigma
-VC <- GMMvarcov(theta) # variance-covariance matrix
+
+allW <- compW(theta) # compute optimal weighted matrices
+W1 <- allW[[1]] # first set of moments
+W2 <- allW[[2]] # second set of moments
+
+theta0 <- c(bethat,gamhat,log(phihat/(1-phihat)),log(sighat)) # initial values (including variable change for positive values)
+
+out <- optim(theta0,WGMM) # minimize GMM objective (optimal)
+theta <- out$par # theta is estimator
+theta[(length(theta)-2):(length(theta)-1)] <- exp(theta[(length(theta)-2):(length(theta)-1)])/(1+exp(theta[(length(theta)-2):(length(theta)-1)])) # redo the variable change for phi
+theta[length(theta)] <- exp(theta[length(theta)]) # redo variable change for sigma
+
+VC <- GMMvarcov(theta) # variance-covariance matrix (optimal)
 stheta <- sqrt(diag(VC)) # standard errors
 
 ## list of variables names

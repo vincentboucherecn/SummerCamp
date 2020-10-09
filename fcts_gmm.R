@@ -349,7 +349,6 @@ Pmat <- function(bet,gamma,phi,sig,c,sim){
     tvar <- D[,j]/(Gtype%*%st)
     tvar[is.nan(tvar)] <- 0
     D[,j] <- tvar
-    
   }
   
   return(D)
@@ -385,7 +384,7 @@ M1i <- function(bet,gamma,phi,sig){
             z <- rep(0,length(gamma)) # initialize vector of zij
             pos2 <- 1
             for (k in lstvars){ # explanatory variables
-              z[k] <- Z[[c]][[k]][i,j]
+              z[pos2] <- Z[[c]][[k]][i,j]
               pos2 <- pos2 + 1
             }
             if (X[[c]][1,2]<6){ # school 6 dropped due to colinearity
@@ -492,6 +491,28 @@ GMM <- function(theta){
   return(obj)
 }
 
+WGMM <- function(theta){
+  
+  ###
+  ### This function computes the estimator's objective function
+  ###
+  
+  t1 <- theta[1:length(bethat)] # beta
+  t2 <- theta[(length(bethat)+1):(length(bethat)+length(gamhat))] # gamma
+  t3 <- theta[(length(bethat)+length(gamhat)+1):(length(bethat)+length(gamhat)+2)] # phi
+  t4 <- theta[(length(bethat)+length(gamhat)+3)] # sigma
+  t3 <- exp(t3)/(1+exp(t3))
+  t4 <- exp(t4)
+  
+  MM1 <- GMMjacob1(theta) # network moments
+  MM2 <- GMMjacob2(theta) # socialization moments
+  Q1 <- c(t(MM1)%*%W1%*%MM1)
+  Q2 <- c(t(MM2)%*%W2%*%MM2)
+  obj <- Q1 + Q2
+  print(obj)
+  return(obj)
+}
+
 
 GMMjacob1 <- function(theta){
 
@@ -521,6 +542,28 @@ GMMjacob2 <- function(theta){
   return(c(colMeans(MM)))
 }
 
+compW <- function(theta){
+  t1 <- theta[1:length(bethat)] # beta
+  t2 <- theta[(length(bethat)+1):(length(bethat)+length(gamhat))] # gamma
+  t3 <- theta[(length(bethat)+length(gamhat)+1):(length(bethat)+length(gamhat)+2)] # phi
+  t4 <- theta[(length(bethat)+length(gamhat)+3)] # sigma
+  
+  MM1 <- M1i(t1,t2,t3,t4)
+  MM2 <- M2i(t1,t2,t3)
+  H1 <- matrix(0,ncol(MM1),ncol(MM1))
+  H2 <- matrix(0,ncol(MM2),ncol(MM2))
+  
+  for (i in 1:nrow(MM1)){
+    H1 <- H1 + matrix(MM1[i,],ncol(MM1),1)%*%matrix(MM1[i,],1,ncol(MM1))/n1 # outer-product Q1
+  }
+  print("H1")
+  for (i in 1:nrow(MM2)){
+    H2 <- H2 + matrix(MM2[i,],ncol(MM2),1)%*%matrix(MM2[i,],1,ncol(MM2))/n2 # outer-product Q2
+  }
+  return(list(solve(H1),solve(H2)))
+}
+
+
 GMMvarcov <- function(theta){
   
   ###
@@ -536,8 +579,8 @@ GMMvarcov <- function(theta){
   print("Jacobian 1")
   GG2 <- jacobian(GMMjacob2,theta)
   print("Jacobian 2")
-  A1 <- t(GG1)%*%GG1 # "hessian" Q1
-  A2 <- t(GG2)%*%GG2 # "hessian" Q2
+  A1 <- t(GG1)%*%W1%*%GG1 # "hessian" Q1
+  A2 <- t(GG2)%*%W2%*%GG2 # "hessian" Q2
   
   MM1 <- M1i(t1,t2,t3,t4)
   MM2 <- M2i(t1,t2,t3)
@@ -551,11 +594,11 @@ GMMvarcov <- function(theta){
   for (i in 1:nrow(MM2)){
     H2 <- H2 + matrix(MM2[i,],ncol(MM2),1)%*%matrix(MM2[i,],1,ncol(MM2))/n2 # outer-product Q2
   }
-  B1 <- t(GG1)%*%H1%*%GG1
-  B2 <- t(GG2)%*%H2%*%GG2
+  B1 <- t(GG1)%*%W1%*%H1%*%W1%*%GG1
+  B2 <- t(GG2)%*%W2%*%H2%*%W2%*%GG2
   print("H2")
   V <- chol2inv(n1*A1 + n2*A2) # the solve function produces produces numerical errors
-  VC <- V%*%( n1*B1 + n2*B2 )%*%V/(n1+n2) # variance-covariance matrix for theta
+  VC <- V%*%( n1*B1 + n2*B2 )%*%V # variance-covariance matrix for theta
   return(VC)
 }
 
@@ -934,7 +977,6 @@ graphdata <- function(){
 #############################################################################
 #############################################################################
 
-
 likprob <- function(gammasig){
   gamma <- gammasig[1:(length(gammasig)-1)]
   sig <- gammasig[length(gammasig)]
@@ -1038,3 +1080,50 @@ TSLS <- function(){
   olshat <- solve(t(BX[,1:(ncol(BX)-2)])%*%BX[,1:(ncol(BX)-2)])%*%t(BX[,1:(ncol(BX)-2)])%*%BY
   return(list(betahat,varhat,olshat))
 }
+
+builddataframe <- function(){
+  
+  ###
+  ### This function computes the 2SLS estimator and variance-covariance matrix for the outcome (it is consistent)
+  ###
+  
+  
+  BXY <- NULL
+  for (c in 1:length(X)){
+    Xt <- X[[c]]
+    nt <- nrow(Xt)
+    bz <- matrix(0,nt,31)
+    bz[,1] <- as.numeric(Xt[,3]==1) # syrian
+    bz[,2] <- as.numeric(Xt[,4]==2) # male
+    bz[,3] <- as.numeric(Xt[,10] %in% c(2,4,5))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,10] %in% c(1,3,5))*as.numeric(Xt[,3]==2) # majority of friends are other than ones type
+    bz[,4] <- as.numeric(Xt[,11] %in% c(2,4,5))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,11] %in% c(1,3,5))*as.numeric(Xt[,3]==2) # majority of neighbours are other than ones type
+    
+    ay <- Xt[,12]
+    ay[is.na(ay)] <- 0
+    bz[,5] <- as.numeric(ay==2012) # arrival year
+    bz[,6] <- as.numeric(ay==2013) # arrival year
+    bz[,7] <- as.numeric(ay==2014) # arrival year
+    bz[,8] <- as.numeric(ay==2015) # arrival year
+    bz[,9] <- as.numeric(ay==2016) # arrival year
+    bz[,10] <- as.numeric(ay==2017) # arrival year
+    bz[,11] <- as.numeric(ay==2018) # arrival year
+    rs <- Xt[,13]
+    rs[is.na(rs)] <- 0
+    bz[,12] <- as.numeric(rs==3) # region syria
+    bz[,13] <- as.numeric(rs==4) # region syria
+    bz[,14] <- as.numeric(rs==5) # region syria
+    bz[,15] <- as.numeric(rs==6) # region syria
+    bz[,16] <- as.numeric(rs==7) # region syria
+    bz[,17] <- as.numeric(rs==8) # region syria
+    
+    l <- Xt[,14]
+    l[is.na(l)] <- 0
+    bz[,18] <- l # language (if Syrian)
+    bz[,19] <- X1[[c]][,15] # wave1 stickers
+    bz[,(19+Xt[1,2])] <- 1
+    bz[,31] <- X[[c]][,15] # wave1 stickers
+    BXY <- rbind(BXY,bz)
+  }
+  return(as.data.frame(BXY))
+}
+
