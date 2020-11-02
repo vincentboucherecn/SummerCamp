@@ -60,8 +60,8 @@ builddata <- function(){
     Xt2[,11] <- tdta2$Parents..neighbors
     Xt2[,12] <- tdta2$ayear
     Xt2[,13] <- tdta2$Region.in.Syria
-    Xt2[,14] <- tdta2$Language
-    Xt2[,15] <- tdta2$Sticker.left
+    Xt2[,14] <- tdta1$Language #### overwrite we do not use wave2 language skill
+    Xt2[,15] <- tdta1$Sticker.left #### overwrite we do not use wave2 stickers
     
     #for all pairs, construct network structures
     for (i in 1:nt){
@@ -101,15 +101,12 @@ buildZ <- function(){
     Xt <- X[[c]]
     nt <- nrow(Xt)
     Zt[[1]] <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # syrian-turkish
-    #Zt[[1]] <- matrix(as.numeric(matrix(Xt[,3],nt,nt)==t(matrix(Xt[,3],nt,nt))),nt,nt) # same ethnicity
     Zt[[2]] <- matrix(as.numeric(Xt[,3]==2),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # turkish-syrian
     Zt[[3]] <- matrix(as.numeric(matrix(Xt[,4],nt,nt)==t(matrix(Xt[,4],nt,nt))),nt,nt) # same gender
     divn <- as.numeric(Xt[,11] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,11] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of neighbours are other than ones type
-    Zt[[4]] <- matrix(divn,nt,nt)*t(matrix(divn,nt,nt))*(Zt[[1]]+Zt[[2]]) # only TS links
-    Zt[[5]] <- matrix(abs(matrix(Xt[,12],nt,nt)-t(matrix(Xt[,12],nt,nt))),nt,nt) # dif ayear
-    Zt[[5]][is.na(Zt[[5]])] <- 0 # 0 for TT or TS pairs
-    Zt[[6]] <- matrix(as.numeric(matrix(Xt[,13],nt,nt)==t(matrix(Xt[,13],nt,nt))),nt,nt) # same region Syria
-    Zt[[6]][is.na(Zt[[6]])] <- 0 # 0 for TT or TS pairs
+    Zt[[4]] <- matrix(divn,nt,nt)*t(matrix(divn,nt,nt))*(Zt[[1]]+Zt[[2]]) # only TS and ST links
+    Zt[[5]] <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # syrian-syrian
+    #Zt[[6]] <- position 6 is not used
     Xt14 <- Xt[,14]
     Xt14[is.na(Xt14)] <- 0
     Zt[[7]] <- (Zt[[1]] + Zt[[2]])*(matrix(Xt14,nt,nt) + t(matrix(Xt14,nt,nt))) # language for syrian-turkish links
@@ -292,11 +289,11 @@ bvec <- function(bet,c){
   l <- Xt[,14]
   l[is.na(l)] <- 0
   b <- b + l*bet[18] # language (if Syrian)
-  b <- b + X1[[c]][,15]*bet[19] # wave1 stickers
   
-  b <- b + bet[(19+Xt[1,2])]
+  b <- b + bet[(18+Xt[1,2])]
   return(b)
 }
+
 
 
 Seq <- function(bet,gamma,phi,sig,c,sim){
@@ -310,11 +307,11 @@ Seq <- function(bet,gamma,phi,sig,c,sim){
   nt <- nrow(Xt)
   b <- bvec(bet,c)
   syr <- matrix(as.numeric(Xt[,3]==1),nt,1)
+  b <- b + Et*sig # random shock
   b[c(syr)==1] <- b[c(syr)==1]*(1-phi[1])
   b[c(syr)==0] <- b[c(syr)==0]*(1-phi[2])
-  b <- b + Et*sig # random shock
-  D <- matrix(1/(nt),nt,nt)
-  
+  D <- matrix(1/(nt-1),nt,nt)
+  diag(D) <- 0
   S0 <- matrix(0,nt,1) # initial socialization guess
   sc <- 0 # stoping flag
   while (sc==0){
@@ -327,7 +324,6 @@ Seq <- function(bet,gamma,phi,sig,c,sim){
   }
   return(S1)
 }
-
 
 Pmat <- function(bet,gamma,phi,sig,c,sim){
   
@@ -411,7 +407,7 @@ M2i <- function(bet,gamma,phi){
   ### This function computes the matrix of moments for the outcome
   ###
   
-  moments <- matrix(0,n2,(30+ 2*19))
+  moments <- matrix(0,n2,(29+ 2*18))
   for (c in 1:length(X)){ # for all classes
     Xt <- X[[c]]
     nt <- nrow(Xt)
@@ -423,13 +419,14 @@ M2i <- function(bet,gamma,phi){
       p1 <- p2 + 1
       p2 <- p1 + nt -1
     }
-    D <- matrix(1/(nt),nt,nt)
+    D <- matrix(1/(nt-1),nt,nt)
+    diag(D) <- 0
     syr <- matrix(as.numeric(Xt[,3]==1),nt,1)
     b <- bvec(bet,c) # b vector
     b[c(syr)==1] <- b[c(syr)==1]*(1-phi[1])
     b[c(syr)==0] <- b[c(syr)==0]*(1-phi[2])
     e <- Xt[,15] - b - phi[1]*(D%*%Xt[,15])*matrix(as.numeric(Xt[,3]==1),nt,1) - phi[2]*(D%*%Xt[,15])*matrix(as.numeric(Xt[,3]==2),nt,1) # errors
-    bz <- matrix(0,nt,(30+ 2*19)) # initialize matrix of moments
+    bz <- matrix(0,nt,(29+ 2*18)) # initialize matrix of moments
     bz[,1] <- as.numeric(Xt[,3]==1) # syrian
     bz[,2] <- as.numeric(Xt[,4]==2) # male
     bz[,3] <- as.numeric(Xt[,10] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,10] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of friends are other than ones type
@@ -456,12 +453,11 @@ M2i <- function(bet,gamma,phi){
     l <- Xt[,14]
     l[is.na(l)] <- 0
     bz[,18] <- l # language (if Syrian)
-    bz[,19] <- X1[[c]][,15] # wave1 stickers
     
-    bz[,(19+Xt[1,2])] <- 1 # school dummy
-    Smask <- matrix(rep(as.numeric(Xt[,3]==1),19),nt,19)
-    bz[,31:(31+19-1)] <- (D%*%bz[,1:19])*Smask
-    bz[,(31+19):ncol(bz)] <- (D%*%bz[,1:19])*(1-Smask)
+    bz[,(18+Xt[1,2])] <- 1 # school dummy
+    Smask <- matrix(rep(as.numeric(Xt[,3]==1),18),nt,18)
+    bz[,30:(30+18-1)] <- (D%*%bz[,1:18])*Smask
+    bz[,(30+18):ncol(bz)] <- (D%*%bz[,1:18])*(1-Smask)
     mmat <- matrix(rep(c(e),ncol(bz)),nt,ncol(bz))
     mmat <- mmat*bz
     moments[p1:p2,] <- mmat
@@ -547,6 +543,8 @@ compW <- function(theta){
   t2 <- theta[(length(bethat)+1):(length(bethat)+length(gamhat))] # gamma
   t3 <- theta[(length(bethat)+length(gamhat)+1):(length(bethat)+length(gamhat)+2)] # phi
   t4 <- theta[(length(bethat)+length(gamhat)+3)] # sigma
+  t3 <- exp(t3)/(1+exp(t3))
+  t4 <- exp(t4)
   
   MM1 <- M1i(t1,t2,t3,t4)
   MM2 <- M2i(t1,t2,t3)
@@ -632,7 +630,7 @@ marginal_bias <- function(theta){
     mbias <- mbias + sum(D,na.rm=T)/n1 # average bias
     
     for (par in 1:length(t2)){ # forall binary variables
-      if (par<=4){ # binary variables that are not school dummies
+      if (par<=length(lstvars)){ # binary variables that are not school dummies
         
         ## =1
         Zt <- Z[[c]] # get pairwise vars
@@ -683,7 +681,7 @@ marginal_bias <- function(theta){
         D0  <- D
       }
       
-      if (par>4){ # for school dummies
+      if (par>length(lstvars)){ # for school dummies
         ## =1
         Zt <- Z[[c]] # get pairwise vars
         Xt <- X[[c]] # get indiv vars
@@ -832,24 +830,16 @@ sametype <- function(theta){
   
   
   q <- rep(NA,length(X)) # share of syrians
-  sfrac <- rep(NA,length(X)) # fraction of same-type links: syrians
   shom <- rep(NA,length(X)) # homophily: syrians
   sihom <- rep(NA,length(X)) # inbreeding homophily: syrians
-  tfrac <- rep(NA,length(X)) # fraction of same-type links: turkish
   thom <- rep(NA,length(X)) # homophily: turkish
   tihom <- rep(NA,length(X)) # inbreeding homophily: turkish
-  ssmean <- rep(NA,length(X)) # average socialization level: syrians
-  stmean <- rep(NA,length(X)) # average socialization level: turkish
-  dss <- rep(NA,length(X)) # average deltaSS
-  dtt <- rep(NA,length(X)) # average deltaTT
-  dst <- rep(NA,length(X)) # average deltaST
-  dts <- rep(NA,length(X)) # average deltaTS
   pss <- rep(NA,length(X)) # average pSS
   ptt <- rep(NA,length(X)) # average pTT
   pst <- rep(NA,length(X)) # average pST
   pts <- rep(NA,length(X)) # average pTS
-  bs <-  rep(NA,length(X)) # average bS
-  bt <-  rep(NA,length(X)) # average bT
+  st <- rep(NA,length(X)) # average st
+  ss <- rep(NA,length(X)) # average ss
   
   for (c in 1:length(X)){ # for all classrooms
     D <- Dmat(t2,c) # bias matrix
@@ -857,10 +847,9 @@ sametype <- function(theta){
     nt <- nrow(Xt)
     q[c] <- mean(as.numeric(Xt[,3]==1))*100 # share of syrians
     St <- Seq(t1,t2,t3,t4,c,sample(1:nsim,1)) # simulate socialization levels
-    ssmean[c] <- mean(St[Xt[,3]==1]) # average socialization level for syrians
-    stmean[c] <- mean(St[Xt[,3]==2]) # average socialization level for turkish
     P <- D*(St%*%t(St)) # probability of linking
-    
+    ss[c] <- mean(St[Xt[,3]==1])
+    st[c] <- mean(St[Xt[,3]==2])
     typel <- typef(Xt)
     for (j in 1:nt){
       rowi <- as.numeric(typel==typel[j])
@@ -881,72 +870,103 @@ sametype <- function(theta){
     iTT <- matrix(as.numeric(Xt[,3]==2),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # turkish-turkish indicator
     diag(iTT) <- 0
     ## draw network using P
-    G <- matrix(runif((nt*nt)),nt,nt)
-    G <- matrix(as.numeric(P>=G),nt,nt)
-    diag(G) <- 0
-    btemp <- bvec(t1,c)
-    syr <- matrix(as.numeric(Xt[,3]==1),nt,1)
-    btemp[c(syr)==1] <- btemp[c(syr)==1]*(1-t3[1])
-    btemp[c(syr)==0] <- btemp[c(syr)==0]*(1-t3[2])
+    Gt <- matrix(runif((nt*nt)),nt,nt)
+    Gt <- matrix(as.numeric(P>=Gt),nt,nt)
+    diag(Gt) <- 0
     if (sum(as.numeric(Xt[,3]==1))>1 & sum(as.numeric(Xt[,3]==1))<(nt-1)){
-      #shom[c] <- mean(rowSums(as.matrix(G[Xt[,3]==1,]*iSS[Xt[,3]==1,],byrow=T)))/max(mean(rowSums(as.matrix(G[Xt[,3]==1,]*iSS[Xt[,3]==1,],byrow=T))) + mean(rowSums(as.matrix(G[Xt[,3]==1,]*iST[Xt[,3]==1,],byrow=T))) ,1) # homophily index Syrians
-      shom[c] <- sum(G[Xt[,3]==1,]*iSS[Xt[,3]==1,])/max(sum(G[Xt[,3]==1,]*iSS[Xt[,3]==1,]) + sum(G[Xt[,3]==1,]*iST[Xt[,3]==1,]) ,1) # homophily index Syrians
+      shom[c] <- sum(Gt*iSS)/max(sum(Gt*iSS) + sum(Gt*iST) ,1) # homophily index Syrians
       sihom[c] <- (shom[c]-q[c]/100)/(1-q[c]/100)
-      #thom[c] <- mean(rowSums(as.matrix(G[Xt[,3]==2,]*iTT[Xt[,3]==2,],byrow=T)))/max(mean(rowSums(as.matrix(G[Xt[,3]==2,]*iTT[Xt[,3]==2,],byrow=T))) + mean(rowSums(as.matrix(G[Xt[,3]==2,]*iTS[Xt[,3]==2,],byrow=T))) ,1) # homophily index Turkish
-      thom[c] <- sum(G[Xt[,3]==2,]*iTT[Xt[,3]==2,])/max(sum(G[Xt[,3]==2,]*iTT[Xt[,3]==2,]) + sum(G[Xt[,3]==2,]*iTS[Xt[,3]==2,]) ,1) # homophily index Syrians
+      thom[c] <- sum(Gt*iTT)/max(sum(Gt*iTT) + sum(Gt*iTS) ,1) # homophily index Syrians
       tihom[c] <- (thom[c]-(1-q[c]/100))/(q[c]/100)
-      sfrac[c] <- mean(rowSums(as.matrix(G[Xt[,3]==1,]*iST[Xt[,3]==1,],byrow=T))) # number of turkish friends (syrian kids): average
-      tfrac[c] <- mean(rowSums(as.matrix(G[Xt[,3]==2,]*iTS[Xt[,3]==2,],byrow=T))) # number of syrian friends (turkish kids): average
-      dss[c] <- mean(D[iSS==1]) # average deltaSS
-      dtt[c] <- mean(D[iTT==1]) # average deltaTT
-      dst[c] <- mean(D[iST==1]) # average deltaST
-      dts[c] <- mean(D[iTS==1]) # average deltaTS
       pss[c] <- mean(P[iSS==1]) # average pSS
       ptt[c] <- mean(P[iTT==1]) # average pTT
       pst[c] <- mean(P[iST==1]) # average pST
       pts[c] <- mean(P[iTS==1]) # average pTS
-      bs[c] <- mean(btemp[Xt[,3]==1])
-      bt[c] <- mean(btemp[Xt[,3]==2])
     }
   }
-  return(list(q,shom,thom,ssmean,stmean,dss,dtt,dst,dts,pss,ptt,pst,pts,sihom,tihom,sfrac,tfrac,bs,bt))
+  return(list(q,shom,thom,pss,ptt,pst,pts,sihom,tihom,ss,st))
+}
+
+sametype_no_congestion <- function(theta){
+  
+  ###
+  ### This function computes equilibrium quantities without congestion (for graphs in counterfactual analysis)
+  ###
+  
+  
+  t1 <- theta[1:length(bethat)] # beta
+  t2 <- theta[(length(bethat)+1):(length(bethat)+length(gamhat))] # gamma
+  t3 <- theta[(length(bethat)+length(gamhat)+1):(length(bethat)+length(gamhat)+2)] # phi
+  t4 <- theta[(length(bethat)+length(gamhat)+3)] # sigma
+  
+  
+  q <- rep(NA,length(X)) # share of syrians
+  shom <- rep(NA,length(X)) # homophily: syrians
+  sihom <- rep(NA,length(X)) # inbreeding homophily: syrians
+  thom <- rep(NA,length(X)) # homophily: turkish
+  tihom <- rep(NA,length(X)) # inbreeding homophily: turkish
+  pss <- rep(NA,length(X)) # average pSS
+  ptt <- rep(NA,length(X)) # average pTT
+  pst <- rep(NA,length(X)) # average pST
+  pts <- rep(NA,length(X)) # average pTS
+  st <- rep(NA,length(X)) # average st
+  ss <- rep(NA,length(X)) # average ss
+  for (c in 1:length(X)){ # for all classrooms
+    D <- Dmat(t2,c) # bias matrix
+    Xt <- X[[c]] # indiv. vars
+    nt <- nrow(Xt)
+    q[c] <- mean(as.numeric(Xt[,3]==1))*100 # share of syrians
+    St <- Seq(t1,t2,t3,t4,c,sample(1:nsim,1)) # simulate socialization levels
+    P <- D*(St%*%matrix(1,1,nt)) # probability of linking
+    ss[c] <- mean(St[Xt[,3]==1])
+    st[c] <- mean(St[Xt[,3]==2])
+    nt <- nrow(Xt)
+    iST <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # syrian-turkish indicator
+    diag(iST) <- 0
+    iTS <- matrix(as.numeric(Xt[,3]==2),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # turkish-syrian indicator
+    diag(iTS) <- 0
+    iSS <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # syrian-syrian indicator
+    diag(iSS) <- 0
+    iTT <- matrix(as.numeric(Xt[,3]==2),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # turkish-turkish indicator
+    diag(iTT) <- 0
+    ## draw network using P
+    Gt <- matrix(runif((nt*nt)),nt,nt)
+    Gt <- matrix(as.numeric(P>=Gt),nt,nt)
+    diag(Gt) <- 0
+    btemp <- bvec(t1,c)
+    if (sum(as.numeric(Xt[,3]==1))>1 & sum(as.numeric(Xt[,3]==1))<(nt-1)){
+      shom[c] <- sum(Gt*iSS)/max(sum(Gt*iSS) + sum(Gt*iST) ,1) # homophily index Syrians
+      sihom[c] <- (shom[c]-q[c]/100)/(1-q[c]/100)
+      thom[c] <- sum(Gt*iTT)/max(sum(Gt*iTT) + sum(Gt*iTS) ,1) # homophily index Syrians
+      tihom[c] <- (thom[c]-(1-q[c]/100))/(q[c]/100)
+      pss[c] <- mean(P[iSS==1]) # average pSS
+      ptt[c] <- mean(P[iTT==1]) # average pTT
+      pst[c] <- mean(P[iST==1]) # average pST
+      pts[c] <- mean(P[iTS==1]) # average pTS
+    }
+  }
+  return(list(q,shom,thom,pss,ptt,pst,pts,sihom,tihom,ss,st))
 }
 
 graphdata <- function(){
   
   ###
-  ### This function computes equilibrium quantities (for graphs in counterfactual analysis)
+  ### This function computes equilibrium quantities on DATA (not for counterfactual analysis)
   ###
   
   
   q <- rep(NA,length(X)) # share of syrians
-  sfrac <- rep(NA,length(X)) # fraction of same-type links: syrians
   shom <- rep(NA,length(X)) # homophily: syrians
   sihom <- rep(NA,length(X)) # inbreeding homophily: syrians
-  tfrac <- rep(NA,length(X)) # fraction of same-type links: turkish
   thom <- rep(NA,length(X)) # homophily: turkish
   tihom <- rep(NA,length(X)) # inbreeding homophily: turkish
-  ssmean <- rep(NA,length(X)) # average socialization level: syrians
-  stmean <- rep(NA,length(X)) # average socialization level: turkish
-  dss <- rep(NA,length(X)) # average deltaSS
-  dtt <- rep(NA,length(X)) # average deltaTT
-  dst <- rep(NA,length(X)) # average deltaST
-  dts <- rep(NA,length(X)) # average deltaTS
-  pss <- rep(NA,length(X)) # average pSS
-  ptt <- rep(NA,length(X)) # average pTT
-  pst <- rep(NA,length(X)) # average pST
-  pts <- rep(NA,length(X)) # average pTS
-  bs <-  rep(NA,length(X)) # average bS
-  bt <-  rep(NA,length(X)) # average bT
-  
+
   for (c in 1:length(X)){ # for all classrooms
     Xt <- X[[c]] # indiv. vars
     nt <- nrow(Xt)
     q[c] <- mean(as.numeric(Xt[,3]==1))*100 # share of syrians
     St <- Xt[,15] # simulate socialization levels
-    ssmean[c] <- mean(St[Xt[,3]==1]) # average socialization level for syrians
-    stmean[c] <- mean(St[Xt[,3]==2]) # average socialization level for turkish
-    
+
     nt <- nrow(Xt)
     iST <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # syrian-turkish indicator
     diag(iST) <- 0
@@ -959,13 +979,221 @@ graphdata <- function(){
     ## draw network using P
     Gt <- G[[c]]
     if (sum(as.numeric(Xt[,3]==1))>1 & sum(as.numeric(Xt[,3]==1))<(nt-1)){
-      shom[c] <- sum(Gt[Xt[,3]==1,]*iSS[Xt[,3]==1,])/max(sum(Gt[Xt[,3]==1,]*iSS[Xt[,3]==1,]) + sum(Gt[Xt[,3]==1,]*iST[Xt[,3]==1,]) ,1) # homophily index Syrians
+      shom[c] <- sum(Gt*iSS)/max(sum(Gt*iSS) + sum(Gt*iST) ,1) # homophily index Syrians
       sihom[c] <- (shom[c]-q[c]/100)/(1-q[c]/100)
-      thom[c] <- sum(Gt[Xt[,3]==2,]*iTT[Xt[,3]==2,])/max(sum(Gt[Xt[,3]==2,]*iTT[Xt[,3]==2,]) + sum(Gt[Xt[,3]==2,]*iTS[Xt[,3]==2,]) ,1) # homophily index Syrians
+      thom[c] <- sum(Gt*iTT)/max(sum(Gt*iTT) + sum(Gt*iTS) ,1) # homophily index Syrians
       tihom[c] <- (thom[c]-(1-q[c]/100))/(q[c]/100)
     }
   }
-  return(list(q,shom,thom,ssmean,stmean,dss,dtt,dst,dts,pss,ptt,pst,pts,sihom,tihom,sfrac,tfrac,bs,bt))
+  return(list(q,shom,thom,sihom,tihom))
+}
+
+gendata <- function(thetat,sim){
+
+  ###
+  ### This function creates datesets of simulated data (for model fit)
+  ###
+    
+  t1 <- thetat[1:length(bethat)] # beta
+  t2 <- thetat[(length(bethat)+1):(length(bethat)+length(gamhat))] # gamma
+  t3 <- thetat[(length(bethat)+length(gamhat)+1):(length(bethat)+length(gamhat)+2)] # phi
+  t4 <- thetat[(length(bethat)+length(gamhat)+3)] # sigma
+  
+  indreg <- as.data.frame(matrix(NA,n2,11)) # initialize results dataframe
+  colnames(indreg) <- c("s","syrian","female","school","q","friends","neighbours","ayear","region","lang","class") # name columns
+  pairreg <- as.data.frame(matrix(NA,n1,9)) # initialize results dataframe
+  colnames(pairreg) <- c("g","type","sgender","parents","skill","school","wave1","q","class") # name columns
+  pos1 <- 1
+  pos2 <- 1
+  for (c in 1:length(X)){
+    Xt <- X[[c]]
+    nt <- nrow(Xt)
+    Zt <-Z[[c]]
+    if (sim==1){
+      St <- Seq(t1,t2,t3,t4,c,sample(1:nsim,1)) # simulate socialization levels
+      St <- pmax(St,1e-8)
+    } else {
+      St <- Xt[,15]
+    }
+    qt <- mean(as.numeric(Xt[,3]==1))*100
+    if (sim==1){
+      D <- Dmat(t2,c) # bias matrix
+      P <- D*(St%*%t(St)) # probability of linking
+      typel <- typef(Xt)
+      for (j in 1:nt){
+        rowi <- as.numeric(typel==typel[j])
+        Gtype <- t(matrix(rep(rowi,nt),nt,nt))
+        oldG <- G1[[c]]
+        Gtype2 <- matrix(as.numeric(oldG==oldG[,j]),nt,nt)
+        Gtype <- Gtype*Gtype2
+        P[,j] <- P[,j]/(Gtype%*%St)
+      }
+      Gt <- matrix(as.numeric(P>=matrix(runif(nt*nt),nt,nt)),nt,nt)
+    } else {
+      Gt <- G[[c]]
+    }
+    
+    diag(Gt) <- NA
+    
+    indreg[pos1:(pos1+nt-1),"s"] <- St
+    indreg[pos1:(pos1+nt-1),"syrian"] <- as.numeric(Xt[,3]==1)
+    indreg[pos1:(pos1+nt-1),"female"] <- as.numeric(Xt[,4]==1)
+    indreg[pos1:(pos1+nt-1),"q"] <- qt
+    indreg[pos1:(pos1+nt-1),"school"] <- rep(Xt[1,2],nt)
+    indreg[pos1:(pos1+nt-1),"friends"] <- as.numeric(Xt[,10] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,10] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of friends are other than ones type
+    indreg[pos1:(pos1+nt-1),"neighbours"] <- as.numeric(Xt[,11] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,11] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of neighbours are other than ones type
+    indreg[pos1:(pos1+nt-1),"ayear"] <- Xt[,12]
+    indreg[pos1:(pos1+nt-1),"region"] <- Xt[,13]
+    indreg[pos1:(pos1+nt-1),"lang"] <- Xt[,14]
+    indreg[pos1:(pos1+nt-1),"class"] <- c
+    pos1 <- pos1 + nt
+    
+    tvec <- c(Gt)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"g"] <- tvec
+    
+    tmat1 <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # SS
+    tmat2 <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # ST
+    tmat3 <- matrix(as.numeric(Xt[,3]==2),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # TT
+    tmat4 <- matrix(as.numeric(Xt[,3]==2),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # TS
+    tmat <- tmat1 + 2*tmat2 + 3*tmat3 + 4*tmat4
+    diag(tmat) <- NA
+    tvec <- c(tmat)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"type"] <- tvec
+    
+    tmat <- matrix(as.numeric(matrix(Xt[,4],nt,nt)==t(matrix(Xt[,4],nt,nt))),nt,nt) #same gender
+    diag(tmat) <- NA
+    tvec <- c(tmat)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"sgender"] <- tvec
+    
+    tmat <- G1[[c]]
+    diag(tmat) <- NA
+    tvec <- c(tmat)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"wave1"] <- tvec
+    
+    
+    divn <- as.numeric(Xt[,11] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,11] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of neighbours are other than ones type
+    tmat <- matrix(divn,nt,nt)*t(matrix(divn,nt,nt))*(tmat2+tmat4) # only TS and ST links
+    diag(tmat) <- NA
+    tvec <- c(tmat)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"parents"] <- tvec
+    
+    Xt14 <- Xt[,14]
+    Xt14[is.na(Xt14)] <- 0
+    tmat <- (tmat2 + tmat4)*(matrix(Xt14,nt,nt) + t(matrix(Xt14,nt,nt))) # language for syrian-turkish links
+    diag(tmat) <- NA
+    tvec <- c(tmat)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"skill"] <- tvec
+    
+    
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"q"] <- qt
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"school"] <- rep(Xt[1,2],(nt*(nt-1)))
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"class"] <- c
+    
+    pos2 <- pos2 + nt*(nt-1)
+  }
+  return(list(indreg,pairreg))
+}
+
+gendata_highskill <- function(thetat,sim){
+  
+  ###
+  ### This function creates datesets of simulated data (for model fit)
+  ###
+  
+  t1 <- thetat[1:length(bethat)] # beta
+  t2 <- thetat[(length(bethat)+1):(length(bethat)+length(gamhat))] # gamma
+  t3 <- thetat[(length(bethat)+length(gamhat)+1):(length(bethat)+length(gamhat)+2)] # phi
+  t4 <- thetat[(length(bethat)+length(gamhat)+3)] # sigma
+  
+  indreg <- as.data.frame(matrix(NA,n2,12)) # initialize results dataframe
+  colnames(indreg) <- c("s","syrian","female","school","q","friends","neighbours","ayear","region","lang","class") # name columns
+  pairreg <- as.data.frame(matrix(NA,n1,7)) # initialize results dataframe
+  colnames(pairreg) <- c("g","type","sgender","school","wave1","q","class") # name columns
+  pos1 <- 1
+  pos2 <- 1
+  for (c in 1:length(X)){
+    Xt <- X[[c]]
+    Xt[Xt[,14]==0,14] <- 1 # all Syrian kids are fluent.
+    nt <- nrow(Xt)
+    Zt <-Z[[c]]
+    if (sim==1){
+      St <- SeqHS(t1,t2,t3,t4,c,sample(1:nsim,1),Xt) # simulate socialization levels
+      St <- pmax(St,1e-8)
+    } else {
+      St <- Xt[,15]
+    }
+    qt <- mean(as.numeric(Xt[,3]==1))*100
+    if (sim==1){
+      D <- Dmat(t2,c) # bias matrix
+      P <- D*(St%*%t(St)) # probability of linking
+      typel <- typef(Xt)
+      for (j in 1:nt){
+        rowi <- as.numeric(typel==typel[j])
+        Gtype <- t(matrix(rep(rowi,nt),nt,nt))
+        oldG <- G1[[c]]
+        Gtype2 <- matrix(as.numeric(oldG==oldG[,j]),nt,nt)
+        Gtype <- Gtype*Gtype2
+        P[,j] <- P[,j]/(Gtype%*%St)
+      }
+      Gt <- matrix(as.numeric(P>=matrix(runif(nt*nt),nt,nt)),nt,nt)
+    } else {
+      Gt <- G[[c]]
+    }
+    
+    diag(Gt) <- NA
+    
+    indreg[pos1:(pos1+nt-1),"s"] <- St
+    indreg[pos1:(pos1+nt-1),"syrian"] <- as.numeric(Xt[,3]==1)
+    indreg[pos1:(pos1+nt-1),"female"] <- as.numeric(Xt[,4]==1)
+    indreg[pos1:(pos1+nt-1),"q"] <- qt
+    indreg[pos1:(pos1+nt-1),"school"] <- rep(Xt[1,2],nt)
+    indreg[pos1:(pos1+nt-1),"friends"] <- as.numeric(Xt[,10] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,10] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of friends are other than ones type
+    indreg[pos1:(pos1+nt-1),"neighbours"] <- as.numeric(Xt[,11] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,11] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of neighbours are other than ones type
+    indreg[pos1:(pos1+nt-1),"ayear"] <- Xt[,12]
+    indreg[pos1:(pos1+nt-1),"region"] <- Xt[,13]
+    indreg[pos1:(pos1+nt-1),"lang"] <- Xt[,14]
+    indreg[pos1:(pos1+nt-1),"class"] <- c
+    pos1 <- pos1 + nt
+    
+    tvec <- c(Gt)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"g"] <- tvec
+    
+    tmat1 <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # SS
+    tmat2 <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # ST
+    tmat3 <- matrix(as.numeric(Xt[,3]==2),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # TT
+    tmat4 <- matrix(as.numeric(Xt[,3]==2),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # TS
+    tmat <- tmat1 + 2*tmat2 + 3*tmat3 + 4*tmat4
+    diag(tmat) <- NA
+    tvec <- c(tmat)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"type"] <- tvec
+    
+    tmat <- matrix(as.numeric(matrix(Xt[,4],nt,nt)==t(matrix(Xt[,4],nt,nt))),nt,nt) #same gender
+    diag(tmat) <- NA
+    tvec <- c(tmat)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"sgender"] <- tvec
+    
+    tmat <- G1[[c]]
+    diag(tmat) <- NA
+    tvec <- c(tmat)
+    tvec <- tvec[is.na(tvec)==F]
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"wave1"] <- tvec
+    
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"q"] <- qt
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"school"] <- rep(Xt[1,2],(nt*(nt-1)))
+    pairreg[pos2:(pos2+nt*(nt-1)-1),"class"] <- c
+    
+    pos2 <- pos2 + nt*(nt-1)
+  }
+  return(list(indreg,pairreg))
 }
 
 
@@ -981,7 +1209,7 @@ likprob <- function(gammasig){
   gamma <- gammasig[1:(length(gammasig)-1)]
   sig <- gammasig[length(gammasig)]
   ###
-  ### This function computes the (mispecified) conditional likelihood of the network
+  ### This function computes the conditional likelihood of the network
   ###
   obj <- rep(NA,n1)
   pos <- 1
@@ -1016,6 +1244,7 @@ likprob <- function(gammasig){
   return(obj)
 }
 
+
 TSLS <- function(){
   
   ###
@@ -1029,8 +1258,9 @@ TSLS <- function(){
   for (c in 1:length(X)){
     Xt <- X[[c]]
     nt <- nrow(Xt)
-    D <- matrix(1/(nt),nt,nt)
-    bz <- matrix(0,nt,(30+ 2*19))
+    D <- matrix(1/(nt-1),nt,nt)
+    diag(D) <- 0
+    bz <- matrix(0,nt,(29+ 18))
     bz[,1] <- as.numeric(Xt[,3]==1) # syrian
     bz[,2] <- as.numeric(Xt[,4]==2) # male
     bz[,3] <- as.numeric(Xt[,10] %in% c(2,4,5))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,10] %in% c(1,3,5))*as.numeric(Xt[,3]==2) # majority of friends are other than ones type
@@ -1057,12 +1287,9 @@ TSLS <- function(){
     l <- Xt[,14]
     l[is.na(l)] <- 0
     bz[,18] <- l # language (if Syrian)
-    bz[,19] <- X1[[c]][,15] # wave1 stickers
-    bz[,(19+Xt[1,2])] <- 1
-    Smask <- matrix(rep(as.numeric(Xt[,3]==1),19),nt,19)
-    bz[,31:(31+19-1)] <- (D%*%bz[,1:19])*Smask
-    bz[,(31+19):ncol(bz)] <- (D%*%bz[,1:19])*(1-Smask)
-    BX <- rbind(BX, cbind(bz[,1:30],(D%*%Xt[,15])*matrix(as.numeric(Xt[,3]==1),nt,1),(D%*%Xt[,15])*matrix(as.numeric(Xt[,3]==2),nt,1)))
+    bz[,(18+Xt[1,2])] <- 1
+    bz[,30:(30+18-1)] <- (D%*%bz[,1:18])
+    BX <- rbind(BX, cbind(bz[,1:29],(D%*%Xt[,15])))
     BY <- rbind(BY,matrix(Xt[,15],nt,1))
     BZ <- rbind(BZ, bz )
   }
@@ -1081,49 +1308,74 @@ TSLS <- function(){
   return(list(betahat,varhat,olshat))
 }
 
-builddataframe <- function(){
+bvecHS <- function(bet,c,Xt){
   
   ###
-  ### This function computes the 2SLS estimator and variance-covariance matrix for the outcome (it is consistent)
+  ### This function computes the vector (b - epsilon) for class c, given a value for bet(a)
+  ### ALTERNATIVE VERSION FOR FLUENCY COUNTERFACTUALS ------ NOT USED
+  ###
+  
+  nt <- nrow(Xt)
+  b <- matrix(as.numeric(Xt[,3]==1),nt,1)*bet[1] # syrian
+  b <- b + matrix(as.numeric(Xt[,4]==2),nt,1)*bet[2] # male
+  divf <- as.numeric(Xt[,10] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,10] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of friends are of the other nationality
+  divn <- as.numeric(Xt[,11] %in% c(2,4))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,11] %in% c(1,3))*as.numeric(Xt[,3]==2) # majority of neighbours are of the other nationality
+  b <- b + matrix(divf,nt,1)*bet[3]
+  b <- b + matrix(divn,nt,1)*bet[4]
+  ay <- Xt[,12]
+  ay[is.na(ay)] <- 0
+  b <- b + as.numeric(ay==2012)*bet[5] # arrival year
+  b <- b + as.numeric(ay==2013)*bet[6] # arrival year
+  b <- b + as.numeric(ay==2014)*bet[7] # arrival year
+  b <- b + as.numeric(ay==2015)*bet[8] # arrival year
+  b <- b + as.numeric(ay==2016)*bet[9] # arrival year
+  b <- b + as.numeric(ay==2017)*bet[10] # arrival year
+  b <- b + as.numeric(ay==2018)*bet[11] # arrival year
+  rs <- Xt[,13]
+  rs[is.na(rs)] <- 0
+  b <- b + as.numeric(rs==3)*bet[12] # region syria
+  b <- b + as.numeric(rs==4)*bet[13] # region syria
+  b <- b + as.numeric(rs==5)*bet[14] # region syria
+  b <- b + as.numeric(rs==6)*bet[15] # region syria
+  b <- b + as.numeric(rs==7)*bet[16] # region syria
+  b <- b + as.numeric(rs==8)*bet[17] # region syria
+  
+  l <- Xt[,14]
+  l[is.na(l)] <- 0
+  b <- b + l*bet[18] # language (if Syrian)
+  
+  b <- b + bet[(18+Xt[1,2])]
+  return(b)
+}
+
+SeqHS <- function(bet,gamma,phi,sig,c,sim,Xt){
+  
+  ###
+  ### This function computes the equilibrium value for s in class c, given all of the parameters and the error for simulation sim
+  ### ALTERNATIVE VERSION FOR FLUENCY COUNTERFACTUALS ------ NOT USED
   ###
   
   
-  BXY <- NULL
-  for (c in 1:length(X)){
-    Xt <- X[[c]]
-    nt <- nrow(Xt)
-    bz <- matrix(0,nt,31)
-    bz[,1] <- as.numeric(Xt[,3]==1) # syrian
-    bz[,2] <- as.numeric(Xt[,4]==2) # male
-    bz[,3] <- as.numeric(Xt[,10] %in% c(2,4,5))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,10] %in% c(1,3,5))*as.numeric(Xt[,3]==2) # majority of friends are other than ones type
-    bz[,4] <- as.numeric(Xt[,11] %in% c(2,4,5))*as.numeric(Xt[,3]==1) + as.numeric(Xt[,11] %in% c(1,3,5))*as.numeric(Xt[,3]==2) # majority of neighbours are other than ones type
-    
-    ay <- Xt[,12]
-    ay[is.na(ay)] <- 0
-    bz[,5] <- as.numeric(ay==2012) # arrival year
-    bz[,6] <- as.numeric(ay==2013) # arrival year
-    bz[,7] <- as.numeric(ay==2014) # arrival year
-    bz[,8] <- as.numeric(ay==2015) # arrival year
-    bz[,9] <- as.numeric(ay==2016) # arrival year
-    bz[,10] <- as.numeric(ay==2017) # arrival year
-    bz[,11] <- as.numeric(ay==2018) # arrival year
-    rs <- Xt[,13]
-    rs[is.na(rs)] <- 0
-    bz[,12] <- as.numeric(rs==3) # region syria
-    bz[,13] <- as.numeric(rs==4) # region syria
-    bz[,14] <- as.numeric(rs==5) # region syria
-    bz[,15] <- as.numeric(rs==6) # region syria
-    bz[,16] <- as.numeric(rs==7) # region syria
-    bz[,17] <- as.numeric(rs==8) # region syria
-    
-    l <- Xt[,14]
-    l[is.na(l)] <- 0
-    bz[,18] <- l # language (if Syrian)
-    bz[,19] <- X1[[c]][,15] # wave1 stickers
-    bz[,(19+Xt[1,2])] <- 1
-    bz[,31] <- X[[c]][,15] # wave1 stickers
-    BXY <- rbind(BXY,bz)
+  Et <- E[[c]][,sim]
+  nt <- nrow(Xt)
+  b <- bvecHS(bet,c,Xt)
+  b <- b + Et*sig # random shock
+  syr <- matrix(as.numeric(Xt[,3]==1),nt,1)
+  b[c(syr)==1] <- b[c(syr)==1]*(1-phi[1])
+  b[c(syr)==0] <- b[c(syr)==0]*(1-phi[2])
+  
+  D <- matrix(1/(nt-1),nt,nt)
+  diag(D) <- 0
+  S0 <- matrix(0,nt,1) # initial socialization guess
+  sc <- 0 # stoping flag
+  while (sc==0){
+    S1 <- b + (phi[1]*syr + phi[2]*(1-syr))*(D%*%S0) # best response (unconstrained)
+    S1 <- pmax(0,pmin(1,S1)) # best response (constrained)
+    if (sum(abs(S1-S0))<1e-6){ # convergence criterion
+      sc <- 1
+    }
+    S0 <- S1
   }
-  return(as.data.frame(BXY))
+  return(S1)
 }
 

@@ -21,7 +21,7 @@ nsim <- 10 # number of simulations for numerical integration
 ########### Loads Dataset ###########
 #####################################
 
-setwd("~/Dropbox/local_summer_camp/structural_group_conformism") # set working directory
+setwd("~/Dropbox/local_summer_camp/structural_group_conformism_clean") # set working directory
 dta <- read.csv("./Syria_data.csv") # load data (csv file directly exported from the excel file)
 dta0 <- dta # backup dataset
 dta$st_id <- as.numeric(dta$Name) # numerical id for students
@@ -39,6 +39,8 @@ dta[dta$Region.in.Syria==".","Region.in.Syria"] <- NA # recode region in Syria
 dta$Region.in.Syria <- as.numeric(dta$Region.in.Syria) # recode region in Syria
 dta[dta$Language==".","Language"] <- NA  # recode language
 dta$Language <- as.numeric(dta$Language) # language as numeric
+dta[dta$Language %in% c(6,7),"Language"] <- 1 # recode language 1=fluent
+dta[dta$Language %in% c(2:5),"Language"] <- 0 # recode language 0= not fluent
 dta$Sticker.left <- as.numeric(dta$Sticker.left)/10 # fraction of stickers given
 dta$sch_id_old <- dta$sch_id # backup school id
 dta[dta$sch_id>9,"sch_id"] <- dta[dta$sch_id>9,"sch_id"]-1 # recode school ids
@@ -60,7 +62,7 @@ rm(biglist)
 
 ## estimates based on second wave
 G <- G2
-X <- X2
+X <- X2 #(stickers and language are wave 1)
 
 # generates list of errors (epsilon using the paper's notation)
 E <- vector("list",length(X))
@@ -87,17 +89,18 @@ Z <- buildZ() # builds list of pair characteristics
 ################################################################
 ################################################################
 
-bethat <- TSLS() 
+bethat <- TSLS() # homogenous phi
 olshat <- bethat[[3]] # ols estimate (inconsistent)
 varbhat <- bethat[[2]] # variance-covariance matrix for the 2SLS
 bethat <- bethat[[1]] # # 2SLS estimate for S (consistent)
 print(cbind(bethat,sqrt(diag(varbhat))))
 
-phihat <- bethat[31:32] # keep point estimate for phi
-bethat <- bethat[1:30] # keep point estimate for beta
-bethat <- bethat/(1-mean(phihat)) # rescale beta using the average phi
 
-lstvars <- c(1:3,8) # variables to use in Z
+phihat <- rep(bethat[30],2) # keep point estimate for phi, DUPLICATE
+bethat <- bethat[1:29] # keep point estimate for beta
+bethat <- bethat/(1-mean(phihat)) # rescale beta
+
+lstvars <- c(1:5,7,8) # variables to use in Z
 
 ## Initial values for gamma are computed using the conditional likelihood
 pr <- maxLik(likprob,start=runif((length(lstvars)+11)),method="BHHH")
@@ -132,14 +135,14 @@ VC <- GMMvarcov(theta) # variance-covariance matrix (optimal)
 stheta <- sqrt(diag(VC)) # standard errors
 
 ## list of variables names
-varnames <- c("Syrian", "Male", "Parents have diverse friends\\$\\dagger\\$", "Parents live in diverse Neighborhood\\$\\dagger\\$",
+varnames <- c("Syrian", "Male", "Parents have diverse friends$^\\dagger$", "Parents live in diverse Neighborhood$^\\dagger$",
               "Arrived in 2012 (Syrians)", "Arrived in 2013 (Syrians)", "Arrived in 2014 (Syrians)", "Arrived in 2015 (Syrians)",
               "Arrived in 2016 (Syrians)", "Arrived in 2017 (Syrians)", "Arrived in 2018 (Syrians)", "Syrian region 3 (Syrians)",
               "Syrian region 4 (Syrians)", "Syrian region 5 (Syrians)", "Syrian region 6 (Syrians)", "Syrian region 7 (Syrians)",
-              "Syrian region 8 (Syrians)", "Turkish skill (Syrians)", "Stickers given in wave 1", "School 1", "School 2", "School 3",
+              "Syrian region 8 (Syrians)", "Fluent in Turkish (Syrians)", "School 1", "School 2", "School 3",
               "School 4", "School 5", "School 6", "School 7", "School 8", "School 9", "School 10", "School 11", "Syrian-Turkish pair",
-              "Turkish-Syrian pair", "Same Gender", "Linked in wave 1", "School 1", "School 2", "School 3", "School 4", "School 5",
-              "School 7", "School 8", "School 9", "School 10", "School 11", "\\$\\phi\\^S\\$", "\\$\\phi\\^T\\$", "\\$\\sigma\\$")
+              "Turkish-Syrian pair", "Same Gender", "Parents live in diverse neighborhood$^\\dagger$","Syrian-Syrian pair","Fluent in Turkish (Syrians)", "Linked in wave 1", "School 1", "School 2", "School 3", "School 4", "School 5",
+              "School 7", "School 8", "School 9", "School 10", "School 11", "$\\phi^S$", "$\\phi^T$", "$\\sigma$")
 
 ### print as a LaTeX table
 for (i in 1:length(theta)){
