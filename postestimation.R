@@ -21,14 +21,6 @@ setwd("~/Dropbox/local_summer_camp/structural_group_conformism_clean") # set wor
 load("estimWave2withcontrols.RData")
 source("fcts_gmm.R") # load functions
 
-nsim <- 500 # overwrite the number of simulations
-# generates list of errors (epsilon using the paper's notation)
-E <- vector("list",length(X))
-for (c in 1:length(X)){
-  nt <- nrow(X[[c]])
-  E[[c]] <- matrix(rnorm(nt*nsim),nt,nsim)
-}
-
 gdata <- graphdata()
 gdata <- as.data.frame(gdata)
 colnames(gdata) <- c("q","hs","ht","ihs","iht") # name columns
@@ -265,6 +257,9 @@ p <- ggplot(results1) + geom_boxplot(aes(x=factor(fq), y=ihs)) + xlab("Refugee s
 p <- ggplot(results1) + geom_boxplot(aes(x=factor(fq), y=iht)) + xlab("Refugee share (deciles)") + ylab("Inbreeding Homophily (Turkish kids)") +
   geom_smooth(aes(x=q/9, y=iht), colour=mancolors[3], method=lm, formula = y ~ poly(x,2)) + ylim(-1,1) + ggsave("iht-baseline.pdf")
 
+
+ffit <-lm(ihs ~ I(q/9) + I((q/9)^2),data=results1)$coefficients
+
 # Socialization
 p <- ggplot(results1) + geom_boxplot(aes(x=factor(fq), y=ss)) + xlab("Refugee share (deciles)") + ylab("Socialization (Syrian kids)") +
   geom_smooth(aes(x=q/9, y=ss), colour=mancolors[3], method=lm, formula = y ~ poly(x,2)) + ylim(0,1) + ggsave("ss-baseline.pdf")
@@ -317,15 +312,15 @@ for (i in 1:length(X)){
   nlist[i] <- nrow(X[[i]])
 }
 
-p <- ggplot() + xlab("Refugee share (deciles)") + ylab("Inbreeding Homophily (Syrian kids)") +
-  geom_smooth(aes(x=q/9, y=ihs), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(-1,1) + scale_x_discrete(limits = as.character(1:10)) + geom_point(aes(x=q/9, y=ihs), data=gdata) + ggsave("ihs-data.pdf")
-p <- ggplot() + xlab("Refugee share (deciles)") + ylab("Inbreeding Homophily (Turkish kids)") +
-  geom_smooth(aes(x=q/9, y=iht), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(-1,1) + scale_x_discrete(limits = as.character(1:10)) + geom_point(aes(x=q/9, y=iht), data=gdata) + ggsave("iht-data.pdf")
+p <- ggplot() + xlab("Refugee share (%)") + ylab("Inbreeding Homophily (Syrian kids)") +
+  geom_smooth(aes(x=q, y=ihs), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(-1,1) + geom_point(aes(x=q, y=ihs), data=gdata) + ggsave("ihs-data.pdf")
+p <- ggplot() + xlab("Refugee share (%)") + ylab("Inbreeding Homophily (Turkish kids)") +
+  geom_smooth(aes(x=q, y=iht), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(-1,1) + geom_point(aes(x=q, y=iht), data=gdata) + ggsave("iht-data.pdf")
 
-p <- ggplot() + xlab("Refugee share (deciles)") + ylab("Homophily index (Syrian kids)") +
-  geom_smooth(aes(x=q/9, y=hs), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(0,1) + scale_x_discrete(limits = as.character(1:10)) + geom_point(aes(x=q/9, y=hs), data=gdata) + ggsave("hs-data.pdf")
-p <- ggplot() + xlab("Refugee share (deciles)") + ylab("Homophily index (Turkish kids)") +
-  geom_smooth(aes(x=q/9, y=ht), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(0,1) + scale_x_discrete(limits = as.character(1:10)) + geom_point(aes(x=q/9, y=ht), data=gdata) + ggsave("ht-data.pdf")
+p <- ggplot() + xlab("Refugee share (%)") + ylab("Homophily index (Syrian kids)") +
+  geom_smooth(aes(x=q, y=hs), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(0,1) + geom_point(aes(x=q, y=hs), data=gdata) + ggsave("hs-data.pdf")
+p <- ggplot() + xlab("Refugee share (%)") + ylab("Homophily index (Turkish kids)") +
+  geom_smooth(aes(x=q, y=ht), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(0,1) + geom_point(aes(x=q, y=ht), data=gdata) + ggsave("ht-data.pdf")
 
 
 save.image("estimWave2withcontrolsandgraphs.RData")

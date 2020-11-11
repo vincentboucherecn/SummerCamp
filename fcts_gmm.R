@@ -243,11 +243,12 @@ Dmat <- function(gamma,c){
     D <- D + Zt[[i]]*gamma[pos] # each observed pair characteristic
     pos <- pos + 1
   }
+#  D <- D + gamma[(pos+Xt[1,2]-1)] # school dummy
   if (Xt[1,2]<6){ # school 6 dropped due to colinearity
-    D <- D + gamma[(pos+Xt[1,2]-1)] # school dummy
+   D <- D + gamma[(pos+Xt[1,2]-1)] # school dummy
   }
   if (Xt[1,2]>6){
-    D <- D + gamma[(pos+Xt[1,2]-2)] # school dummy
+   D <- D + gamma[(pos+Xt[1,2]-2)] # school dummy
   }
   D <- pnorm(D)
   diag(D) <- 0
@@ -1001,8 +1002,8 @@ gendata <- function(thetat,sim){
   
   indreg <- as.data.frame(matrix(NA,n2,11)) # initialize results dataframe
   colnames(indreg) <- c("s","syrian","female","school","q","friends","neighbours","ayear","region","lang","class") # name columns
-  pairreg <- as.data.frame(matrix(NA,n1,9)) # initialize results dataframe
-  colnames(pairreg) <- c("g","type","sgender","parents","skill","school","wave1","q","class") # name columns
+  pairreg <- as.data.frame(matrix(NA,n1,10)) # initialize results dataframe
+  colnames(pairreg) <- c("g","type","sgender","parents","skill","school","wave1","q","class","p") # name columns
   pos1 <- 1
   pos2 <- 1
   for (c in 1:length(X)){
@@ -1051,6 +1052,13 @@ gendata <- function(thetat,sim){
     tvec <- c(Gt)
     tvec <- tvec[is.na(tvec)==F]
     pairreg[pos2:(pos2+nt*(nt-1)-1),"g"] <- tvec
+    
+    if (sim==1){
+      diag(P) <- NA
+      tvec <- c(P)
+      tvec <- tvec[is.na(tvec)==F]
+      pairreg[pos2:(pos2+nt*(nt-1)-1),"p"] <- tvec
+    }
     
     tmat1 <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==1),nt,nt)) # SS
     tmat2 <- matrix(as.numeric(Xt[,3]==1),nt,nt)*t(matrix(as.numeric(Xt[,3]==2),nt,nt)) # ST
@@ -1216,22 +1224,23 @@ likprob <- function(gammasig){
   for (c in 1:length(X)){
     Xt <- X[[c]]
     nt <- nrow(Xt)
-    #st <- pmax(X[[c]][,15],1e-6)
-    st <- matrix(0,nt,1)
+    Dtot <- matrix(0,nt,nt)
     for (sim in 1:nsim){
-      st <- st + Seq(bethat,gamma,phihat,sig,c,sim)/nsim
+      st <- Seq(bethat,gamma,phihat,sig,c,sim)
+      D <- Dmat(gamma,c)*(st%*%t(st))
+      typel <- typef(Xt)
+      for (j in 1:nt){
+        rowi <- as.numeric(typel==typel[j])
+        Gtype <- t(matrix(rep(rowi,nt),nt,nt))
+        Gtype2 <- matrix(as.numeric(G1[[c]]==G1[[c]][,j]),nt,nt)
+        Gtype <- Gtype*Gtype2
+        tvar <- D[,j]/(Gtype%*%st)
+        tvar[is.nan(tvar)] <- 0
+        D[,j] <- tvar
+      }
+      Dtot <- Dtot + D/nsim
     }
-    D <- Dmat(gamma,c)*(st%*%t(st))
-    typel <- typef(Xt)
-    for (j in 1:nt){
-     rowi <- as.numeric(typel==typel[j])
-     Gtype <- t(matrix(rep(rowi,nt),nt,nt))
-     Gtype2 <- matrix(as.numeric(G1[[c]]==G1[[c]][,j]),nt,nt)
-     Gtype <- Gtype*Gtype2
-     tvar <- D[,j]/(Gtype%*%st)
-     tvar[is.nan(tvar)] <- 0
-     D[,j] <- tvar
-    }
+    D <- Dtot
     Gt <- G[[c]]
     diag(D) <- 0.5 # temporary value
     P <- Gt*log(D) + (1-Gt)*log(1-D)
@@ -1244,17 +1253,14 @@ likprob <- function(gammasig){
   return(obj)
 }
 
-
-TSLS <- function(){
+TSLS_comp <- function(){
   
   ###
   ### This function computes the 2SLS estimator and variance-covariance matrix for the outcome (it is consistent)
   ###
   
   
-  BX <- NULL
-  BZ <- NULL
-  BY <- NULL
+  BXYZ <- NULL
   for (c in 1:length(X)){
     Xt <- X[[c]]
     nt <- nrow(Xt)
@@ -1289,23 +1295,17 @@ TSLS <- function(){
     bz[,18] <- l # language (if Syrian)
     bz[,(18+Xt[1,2])] <- 1
     bz[,30:(30+18-1)] <- (D%*%bz[,1:18])
-    BX <- rbind(BX, cbind(bz[,1:29],(D%*%Xt[,15])))
-    BY <- rbind(BY,matrix(Xt[,15],nt,1))
-    BZ <- rbind(BZ, bz )
+    BXYZ <- rbind(BXYZ, cbind( bz,  (D%*%Xt[,15]),matrix(Xt[,15],nt,1) ))
   }
-  ZZ <- solve(t(BZ)%*%BZ)
-  XX <- (t(BX)%*%BX)
-  P1 <- solve(t(BX)%*%BZ%*%ZZ%*%t(BZ)%*%BX)
-  betahat <- P1%*%t(BX)%*%BZ%*%ZZ%*%t(BZ)%*%BY
-  err <- c(BY-BX%*%betahat)
-  S <- matrix(0,ncol(BZ),ncol(BZ))
-  for (i in 1:nrow(BZ)){
-    S <- S + (err[i]^2)*t(matrix(BZ[i,],1,ncol(BZ)))%*%matrix(BZ[i,],1,ncol(BZ))
-  }
-  S <- S/nrow(BZ)
-  varhat <- P1%*%t(BX)%*%BZ%*%ZZ%*%S%*%ZZ%*%t(BZ)%*%BX%*%P1
-  olshat <- solve(t(BX[,1:(ncol(BX)-2)])%*%BX[,1:(ncol(BX)-2)])%*%t(BX[,1:(ncol(BX)-2)])%*%BY
-  return(list(betahat,varhat,olshat))
+  BXYZ <- as.data.frame(BXYZ)
+  colnames(BXYZ) <- c("Syrian", "Male", "ParentsF", "ParentsN", "A2012", "A2013", "A2014", "A2015", "A2016", "A2017", "A2018",
+                      "Region3", "Region4", "Region5", "Region6", "Region7", "Region8", "Fluent", "S1", "S2", "S3", "S4", "S5",
+                      "S6", "S7", "S8", "S9", "S10", "S11",
+                      "GSyrian", "GMale", "GParentsF", "GParentsN", "GA2012", "GA2013", "GA2014", "GA2015", "GA2016", "GA2017", "GA2018",
+                      "GRegion3", "GRegion4", "GRegion5", "GRegion6", "GRegion7", "GRegion8", "GFluent",
+                      "GY", "Y")
+  
+  return(BXYZ)
 }
 
 bvecHS <- function(bet,c,Xt){

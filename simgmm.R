@@ -15,7 +15,7 @@ set.seed(1234) # set seed
 ############ Parameters #############
 #####################################
 
-nsim <- 10 # number of simulations for numerical integration
+nsim <- 100 # number of simulations for numerical integration
 
 #####################################
 ########### Loads Dataset ###########
@@ -88,22 +88,61 @@ Z <- buildZ() # builds list of pair characteristics
 ################# Calibrate starting values ####################
 ################################################################
 ################################################################
+dta2SLS <- TSLS_comp()
 
-bethat <- TSLS() # homogenous phi
-olshat <- bethat[[3]] # ols estimate (inconsistent)
-varbhat <- bethat[[2]] # variance-covariance matrix for the 2SLS
-bethat <- bethat[[1]] # # 2SLS estimate for S (consistent)
-print(cbind(bethat,sqrt(diag(varbhat))))
+###############
+######## Syrian 2SLS
+###############
 
+expls <- c("Male", "ParentsF", "ParentsN", "A2012", "A2013", "A2014", "A2015", "A2016", "A2017", "A2018",
+          "Region3", "Region4", "Region5", "Region6", "Region7", "Region8", "Fluent", "S1", "S2", "S3", "S4", "S5",
+          "S6", "S7", "S8", "S9", "S10", "S11")
+instr <- c("GSyrian", "GMale", "GParentsF", "GParentsN", "GA2012", "GA2013", "GA2014", "GA2015", "GA2016", "GA2017", "GA2018",
+           "GRegion3", "GRegion4", "GRegion5", "GRegion6", "GRegion7", "GRegion8", "GFluent")
 
-phihat <- rep(bethat[30],2) # keep point estimate for phi, DUPLICATE
-bethat <- bethat[1:29] # keep point estimate for beta
-bethat <- bethat/(1-mean(phihat)) # rescale beta
+formus <- paste(c("Y ~ 0 +", paste(expls,collapse=" + ")," + GY | . -GY + "),collapse = "")
+formus <- paste(formus, paste(instr,collapse=" + ") )
+outs <- ivreg(as.formula(formus),data=dta2SLS[dta2SLS$Syrian==1,] )
+
+###############
+######## Turkish 2SLS
+###############
+
+explt <- c("Male", "ParentsF", "ParentsN", "S1", "S2", "S3", "S4", "S5",
+           "S6", "S7", "S8", "S9", "S10", "S11")
+instr <- c("GSyrian", "GMale", "GParentsF", "GParentsN", "GA2012", "GA2013", "GA2014", "GA2015", "GA2016", "GA2017", "GA2018",
+           "GRegion3", "GRegion4", "GRegion5", "GRegion6", "GRegion7", "GRegion8", "GFluent")
+
+formut <- paste(c("Y ~ 0 +", paste(explt,collapse=" + ")," + GY | . -GY + "),collapse = "")
+formut <- paste(formut, paste(instr,collapse=" + ") )
+outt <- ivreg(as.formula(formut),data=dta2SLS[dta2SLS$Syrian==0,] )
+
+###############
+######## Total 2SLS
+###############
+
+expl <- c("Syrian", "Male", "ParentsF", "ParentsN", "A2012", "A2013", "A2014", "A2015", "A2016", "A2017", "A2018",
+          "Region3", "Region4", "Region5", "Region6", "Region7", "Region8", "Fluent", "S1", "S2", "S3", "S4", "S5",
+          "S6", "S7", "S8", "S9", "S10", "S11")
+instr <- c("GSyrian", "GMale", "GParentsF", "GParentsN", "GA2012", "GA2013", "GA2014", "GA2015", "GA2016", "GA2017", "GA2018",
+           "GRegion3", "GRegion4", "GRegion5", "GRegion6", "GRegion7", "GRegion8", "GFluent")
+
+formu <- paste(c("Y ~ 0 +", paste(expl,collapse=" + ")," + GY | . -GY + "),collapse = "")
+formu <- paste(formu, paste(instr,collapse=" + ") )
+out_tsls <- ivreg(as.formula(formu),data=dta2SLS )
+
+#########
+#### Starting values
+#########
+
+bethat <- out_tsls$coefficients[1:(length(out_tsls$coefficients)-1)]/(1-out_tsls$coefficients[length(out_tsls$coefficients)])
+phihat <- c(outs$coefficients[length(outs$coefficients)],outt$coefficients[length(outt$coefficients)])
 
 lstvars <- c(1:5,7,8) # variables to use in Z
 
 ## Initial values for gamma are computed using the conditional likelihood
 pr <- maxLik(likprob,start=runif((length(lstvars)+11)),method="BHHH")
+print(summary(pr))
 gamhat <- pr$estimate
 sighat <- gamhat[length(gamhat)] # point estimate for sigma
 gamhat <- gamhat[1:(length(gamhat)-1)]  # keep point estimate for gamma
