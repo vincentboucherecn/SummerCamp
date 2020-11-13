@@ -258,8 +258,6 @@ p <- ggplot(results1) + geom_boxplot(aes(x=factor(fq), y=iht)) + xlab("Refugee s
   geom_smooth(aes(x=q/9, y=iht), colour=mancolors[3], method=lm, formula = y ~ poly(x,2)) + ylim(-1,1) + ggsave("iht-baseline.pdf")
 
 
-ffit <-lm(ihs ~ I(q/9) + I((q/9)^2),data=results1)$coefficients
-
 # Socialization
 p <- ggplot(results1) + geom_boxplot(aes(x=factor(fq), y=ss)) + xlab("Refugee share (deciles)") + ylab("Socialization (Syrian kids)") +
   geom_smooth(aes(x=q/9, y=ss), colour=mancolors[3], method=lm, formula = y ~ poly(x,2)) + ylim(0,1) + ggsave("ss-baseline.pdf")
@@ -322,5 +320,90 @@ p <- ggplot() + xlab("Refugee share (%)") + ylab("Homophily index (Syrian kids)"
 p <- ggplot() + xlab("Refugee share (%)") + ylab("Homophily index (Turkish kids)") +
   geom_smooth(aes(x=q, y=ht), colour=mancolors[3], method=lm, formula = y ~ poly(x,2),data=gdata) + ylim(0,1) + geom_point(aes(x=q, y=ht), data=gdata) + ggsave("ht-data.pdf")
 
+
+######################################################
+######################################################
+############## Compute values in text ################
+######################################################
+######################################################
+
+lms <- lm(ihs ~ I(q) + I(q^2),data=results1)
+a <- lms$coefficients[3]
+b <- lms$coefficients[2]
+c <- lms$coefficients[1]
+zero <- (-b-sqrt(b^2-4*a*c))/(2*a)
+mx <- -b/(2*a)
+print(c("Syrian - baseline:", "zero=",zero,"max=",mx))
+
+lmt <- lm(iht ~ I(q) + I(q^2),data=results1)
+a <- lmt$coefficients[3]
+b <- lmt$coefficients[2]
+c <- lmt$coefficients[1]
+zero <- (-b+sqrt(b^2-4*a*c))/(2*a)
+mx <- -b/(2*a)
+print(c("Turkish - baseline:", "zero=",zero,"max=",mx))
+
+
+lms0 <- lm(ihs ~ I(q) + I(q^2),data=results0)
+a <- lms0$coefficients[3]
+b <- lms0$coefficients[2]
+c <- lms0$coefficients[1]
+zero <- (-b-sqrt(b^2-4*a*c))/(2*a)
+mx <- -b/(2*a)
+print(c("Syrian - 0:", "zero=",zero,"max=",mx))
+
+lms2 <- lm(ihs ~ I(q) + I(q^2),data=results2)
+a <- lms2$coefficients[3]
+b <- lms2$coefficients[2]
+c <- lms2$coefficients[1]
+zero <- (-b-sqrt(b^2-4*a*c))/(2*a)
+mx <- -b/(2*a)
+print(c("Syrian - high:", "zero=",zero,"max=",mx))
+
+lmt0 <- lm(iht ~ I(q) + I(q^2),data=results0)
+a <- lmt0$coefficients[3]
+b <- lmt0$coefficients[2]
+c <- lmt0$coefficients[1]
+zero <- (-b+sqrt(b^2-4*a*c))/(2*a)
+mx <- -b/(2*a)
+print(c("Turkish - 0:", "zero=",zero,"max=",mx))
+
+lmt2 <- lm(iht ~ I(q) + I(q^2),data=results2)
+a <- lmt2$coefficients[3]
+b <- lmt2$coefficients[2]
+c <- lmt2$coefficients[1]
+zero <- (-b+sqrt(b^2-4*a*c))/(2*a)
+mx <- -b/(2*a)
+print(c("Turkish - high:", "zero=",zero,"max=",mx))
+
+lmshs <- lm(ihs ~ I(q) + I(q^2),data=results_hs)
+a <- lmshs$coefficients[3]
+b <- lmshs$coefficients[2]
+c <- lmshs$coefficients[1]
+zero <- (-b-sqrt(b^2-4*a*c))/(2*a)
+mx <- -b/(2*a)
+print(c("Syrian - high-skill:", "zero=",zero,"max=",mx))
+
+lmths <- lm(iht ~ I(q) + I(q^2),data=results_hs)
+a <- lmths$coefficients[3]
+b <- lmths$coefficients[2]
+c <- lmths$coefficients[1]
+zero <- (-b+sqrt(b^2-4*a*c))/(2*a)
+mx <- -b/(2*a)
+print(c("Turkish - high-skill:", "zero=",zero,"max=",mx))
+
+skillgap <- (lms$coefficients[1]+lms$coefficients[2]*50 + lms$coefficients[3]*(50^2)) -
+  (lmshs$coefficients[1]+lmshs$coefficients[2]*50 + lmshs$coefficients[3]*(50^2))
+biasgap <- (lms$coefficients[1]+lms$coefficients[2]*50 + lms$coefficients[3]*(50^2)) -
+  (lms0$coefficients[1]+lms0$coefficients[2]*50 + lms0$coefficients[3]*(50^2))
+
+print(c("Syrian -skill/bias", (skillgap/biasgap)))
+
+skillgap <- (lmt$coefficients[1]+lmt$coefficients[2]*50 + lmt$coefficients[3]*(50^2)) -
+  (lmths$coefficients[1]+lmths$coefficients[2]*50 + lmths$coefficients[3]*(50^2))
+biasgap <- (lmt$coefficients[1]+lmt$coefficients[2]*50 + lmt$coefficients[3]*(50^2)) -
+  (lmt0$coefficients[1]+lmt0$coefficients[2]*50 + lmt0$coefficients[3]*(50^2))
+
+print(c("Turkish -skill/bias", (skillgap/biasgap)))
 
 save.image("estimWave2withcontrolsandgraphs.RData")
