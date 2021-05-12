@@ -596,7 +596,7 @@ GMMvarcov <- function(theta){
   B1 <- t(GG1)%*%W1%*%H1%*%W1%*%GG1
   B2 <- t(GG2)%*%W2%*%H2%*%W2%*%GG2
   print("H2")
-  V <- chol2inv(n1*A1 + n2*A2) # the solve function produces produces numerical errors
+  V <- solve(n1*A1 + n2*A2) # the solve function produces produces numerical errors
   VC <- V%*%( n1*B1 + n2*B2 )%*%V # variance-covariance matrix for theta
   return(VC)
 }
